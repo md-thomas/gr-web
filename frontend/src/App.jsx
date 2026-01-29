@@ -8,10 +8,12 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import ThrottleNode from "./components/ThrottleNode";
 import OptionsNode from "./components/OptionsNode";
+import VariableNode from "./components/VariableNode";
 
 const nodeTypes = { 
-  throttleNode: ThrottleNode,
   optionsNode: OptionsNode,
+  variableNode: VariableNode,
+  throttleNode: ThrottleNode,
 };
 
 // Initial node on canvas
@@ -30,15 +32,21 @@ const initialNodes = [
     selectable: false,          // optional: can't accidentally delete
   },
   {
-    id: "1",
-    position: { x: 200, y: 150 },
-    data: { label: "Throttle", sampleRate: 32000 },
-    type: "throttleNode",
+    id: "variable-1",
+    type: "variableNode",       // Our new VariableNode
+    position: { x: 180, y: 10 }, // top-left corner
+    data: { name: "samp_rate", value: 1e6 },
   },
+  // {
+  //   id: "1",
+  //   position: { x: 200, y: 150 },
+  //   data: { label: "Throttle", sampleRate: 32000 },
+  //   type: "throttleNode",
+  // },
 ];
 
 // Blocks available in the palette
-const availableBlocks = ["Throttle", "Source", "Sink"];
+const availableBlocks = ["Variable", "Throttle", "Source", "Sink"];
 
 export default function App() {
   return (
@@ -106,7 +114,12 @@ function FlowCanvas() {
       y: viewport.y + canvasHeight / 2 + nodeCounter * 20,
     };
 
-    const nodeType = blockName === "Throttle" ? "throttleNode" : "default";
+    // const nodeType = type === "Throttle" ? "throttleNode"
+    //            : type === "Variable" ? "variableNode"
+    //            : "default";
+    const nodeType = blockName === "Throttle" ? "throttleNode"
+               : blockName === "Variable" ? "variableNode"
+               : "default";
 
     setNodes((nds) => [
       ...nds,
@@ -154,6 +167,19 @@ function FlowCanvas() {
     [selectedNodes, selectedEdges]
   );
 
+  const resetFlow = () => {
+    setNodes([
+      {
+        id: "variable-1",
+        type: "variableNode",
+        position: { x: 20, y: 20 },
+        data: { name: "samp_rate", value: 1e6 },
+      },
+    ]);
+    setEdges([]);
+  };
+
+
   return (
     <div style={styles.app}>
       <div style={styles.toolbar}>
@@ -162,11 +188,21 @@ function FlowCanvas() {
           style={styles.toolbarButton}
           onClick={() => {
             const flowData = { nodes, edges };
+            console.log("New Flowgraph:", JSON.stringify(flowData, null, 2));
+          }}
+        >
+          New
+        </button> 
+        <button
+          style={styles.toolbarButton}
+          onClick={() => {
+            const flowData = { nodes, edges };
             console.log("Load Flowgraph:", JSON.stringify(flowData, null, 2));
           }}
         >
           Load
-        </button>        <button
+        </button>        
+        <button
           style={styles.toolbarButton}
           onClick={() => {
             const flowData = { nodes, edges };
