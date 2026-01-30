@@ -1,10 +1,11 @@
 // VariableNode.jsx
 import React, { useState } from "react";
 import { Handle, Position } from "reactflow";
+import { grcFormat } from "../utils/format";
 
 export default function VariableNode({ data }) {
   const [varId, setVarId] = useState(data.id || "var");
-  const [value, setValue] = useState(data.value || 1);
+  const [value, setValue] = useState(data.value || 32000);
 
   const handleStyle = {
     width: 35,
@@ -36,7 +37,7 @@ export default function VariableNode({ data }) {
         position: "relative",
       }}
     >
-      <div style={{ fontWeight: "bold" }}>Variable</div>
+      <div style={{ fontWeight: "bold", fontSize: 12 }}>Variable</div>
 
       <div
         style={{
@@ -66,7 +67,7 @@ export default function VariableNode({ data }) {
         <label style={{ fontSize: 10, minWidth: 20 }}><strong>Value:</strong></label>
         <input
           type="text"
-          value={varId}
+          value={grcFormat(value)}
           onChange={(e) => setValue(e.target.value)}
           style={{ fontSize: 12, flex: 1, width: 10 }} // flex:1 makes input take remaining space
         />

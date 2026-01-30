@@ -1,9 +1,11 @@
 // ThrottleNode.jsx
 import React, { useState } from "react";
 import { Handle, Position } from "reactflow";
+import { grcFormat } from "../utils/format";
 
 export default function ThrottleNode({ data }) {
   const [sampleRate, setSampleRate] = useState(data.sampleRate || 32000);
+  const [limit, setLimit] = useState(data.limit || 0);
 
   // New port dimensions
   const handleStyle = {
@@ -30,21 +32,44 @@ export default function ThrottleNode({ data }) {
         border: "2px solid #003366",
         borderRadius: 4,
         background: "#e6e6fa",
-        minWidth: 80,
+        minWidth: 110,
         width: 80,
         textAlign: "center",
         position: "relative",
       }}
     >
-      <div style={{ fontWeight: "bold" }}>Throttle</div>
+      <div style={{ fontWeight: "bold", fontSize: 12 }}>Throttle</div>
 
-      <div style={{ marginTop: 8 }}>
-        <label style={{ fontSize: 10 }}>Sample Rate:</label>
+      <div
+        style={{
+          display: "flex",          // put children in a row
+          alignItems: "center",     // vertically center label and input
+          marginTop: 8,
+          gap: 4,                   // optional: space between label and input
+        }}
+      >
+        <label style={{ fontSize: 10, minWidth: 20 }}><strong>Sample Rate:</strong></label>
         <input
-          type="number"
-          value={sampleRate}
-          onChange={(e) => setSampleRate(Number(e.target.value))}
-          style={{ width: "100%", fontSize: 12, marginTop: 2 }}
+          type="text"
+          value={grcFormat(data.sampleRate)}
+          onChange={(e) => setSampleRate(e.target.value)}
+          style={{ fontSize: 12, flex: 1, width: 10 }} // flex:1 makes input take remaining space
+        />
+      </div>
+      <div
+        style={{
+          display: "flex",          // put children in a row
+          alignItems: "center",     // vertically center label and input
+          marginTop: 8,
+          gap: 4,                   // optional: space between label and input
+        }}
+      >
+        <label style={{ fontSize: 10, minWidth: 20 }}><strong>Limit:</strong></label>
+        <input
+          type="text"
+          value={limit}
+          onChange={(e) => setLimit(e.target.value)}
+          style={{ fontSize: 12, flex: 1, width: 10 }} // flex:1 makes input take remaining space
         />
       </div>
 

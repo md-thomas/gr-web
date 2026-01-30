@@ -35,14 +35,8 @@ const initialNodes = [
     id: "variable-1",
     type: "variableNode",       // Our new VariableNode
     position: { x: 180, y: 10 }, // top-left corner
-    data: { name: "samp_rate", value: 1e6 },
+    data: { label: "Variable", id: "samp_rate", value: 32e3 },
   },
-  // {
-  //   id: "1",
-  //   position: { x: 200, y: 150 },
-  //   data: { label: "Throttle", sampleRate: 32000 },
-  //   type: "throttleNode",
-  // },
 ];
 
 // Blocks available in the palette
@@ -56,11 +50,15 @@ export default function App() {
   );
 }
 
-function FlowCanvas() {
+// FlowCanvas
+function FlowCanvas() {  
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNodes, setSelectedNodes] = useState([]);
   const [selectedEdges, setSelectedEdges] = useState([]);
+
+  const [clipboard, setClipboard] = useState(null);
+  const pasteOffsetRef = useRef(0);
 
   const reactFlowWrapper = useRef(null);
   const [nodeCounter, setNodeCounter] = useState(0);
@@ -114,9 +112,6 @@ function FlowCanvas() {
       y: viewport.y + canvasHeight / 2 + nodeCounter * 20,
     };
 
-    // const nodeType = type === "Throttle" ? "throttleNode"
-    //            : type === "Variable" ? "variableNode"
-    //            : "default";
     const nodeType = blockName === "Throttle" ? "throttleNode"
                : blockName === "Variable" ? "variableNode"
                : "default";
@@ -127,6 +122,78 @@ function FlowCanvas() {
     ]);
     setNodeCounter((c) => c + 1);
   };
+
+  // const handleKeyDown = useCallback(
+  //   (event) => {
+  //     if (["Delete", "Del", "Backspace"].includes(event.key)) {
+  //       setNodes((nds) => nds.filter((n) => !selectedNodes.some((sel) => sel.id === n.id)));
+  //       setEdges((eds) => eds.filter((e) => !selectedEdges.some((sel) => sel.id === e.id)));
+  //       event.preventDefault();
+  //     }
+  //   },
+  //   [selectedNodes, selectedEdges]
+  // );
+
+  const handleKeyDown = useCallback(
+    (event) => {
+      const isMac = navigator.platform.toUpperCase().includes("MAC");
+      const ctrl = isMac ? event.metaKey : event.ctrlKey;
+
+      // DELETE
+      if (["Delete", "Del", "Backspace"].includes(event.key)) {
+        setNodes((nds) =>
+          nds.filter((n) => !selectedNodes.some((sel) => sel.id === n.id))
+        );
+        setEdges((eds) =>
+          eds.filter((e) => !selectedEdges.some((sel) => sel.id === e.id))
+        );
+        event.preventDefault();
+        return;
+      }
+
+      // COPY      
+      if (ctrl && event.key.toLowerCase() === "c") {
+        if (selectedNodes.length === 0) return;
+
+      const copyable = selectedNodes.filter(
+        (n) => n.type !== "optionsNode"
+      );
+
+      if (copyable.length === 0) return;
+        setClipboard(
+          selectedNodes.map((n) => ({
+            ...n,
+            id: undefined, // we'll regenerate IDs on paste
+          }))
+        );
+        pasteOffsetRef.current = 0;
+        event.preventDefault();
+        return;
+      }
+
+      // PASTE
+      if (ctrl && event.key.toLowerCase() === "v") {
+        if (!clipboard) return;
+
+        pasteOffsetRef.current += 20;
+
+        const pastedNodes = clipboard.map((n) => ({
+          ...n,
+          id: `${n.type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          position: {
+            x: n.position.x + pasteOffsetRef.current,
+            y: n.position.y + pasteOffsetRef.current,
+          },
+          selected: false,
+        }));
+
+        setNodes((nds) => [...nds, ...pastedNodes]);
+        event.preventDefault();
+      }
+    },
+    [selectedNodes, selectedEdges, clipboard, setNodes, setEdges]
+  );
+
 
   function BlockInspector({ node }) {
     return (
@@ -155,17 +222,7 @@ function FlowCanvas() {
       </div>
     );
   }
-
-  const handleKeyDown = useCallback(
-    (event) => {
-      if (["Delete", "Del", "Backspace"].includes(event.key)) {
-        setNodes((nds) => nds.filter((n) => !selectedNodes.some((sel) => sel.id === n.id)));
-        setEdges((eds) => eds.filter((e) => !selectedEdges.some((sel) => sel.id === e.id)));
-        event.preventDefault();
-      }
-    },
-    [selectedNodes, selectedEdges]
-  );
+  
 
   const resetFlow = () => {
     setNodes([
@@ -369,7 +426,8 @@ const styles = {
     fontSize: 12,
     border: "1px solid #bbb",
     background: "#fff",
-    // overflow: "auto",
+    overflowY: "auto",
+    overflowX: "hidden",
     boxSizing: "border-box",
   },
   toolbarButton: {
