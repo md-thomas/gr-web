@@ -2,7 +2,10 @@ import os
 import yaml
 import json
 
-
+'''
+Create the block info json file like this: 
+    python get_grc_block_info.py > grc_block_info.json
+'''
 
 def get_full_gr_tree(block_path='/usr/share/gnuradio/grc/blocks'):
     block_registry = {}
