@@ -1,99 +1,124 @@
+import os
 import yaml
-from pathlib import Path
+import json
 
-def parse_tree_node(node):
-    """
-    Recursively parse a GRC tree node.
-    """
-    result = {}
-    blocks = []
+def get_full_gr_tree(block_path='/usr/share/gnuradio/grc/blocks'):
+    block_registry = {}
 
-    for item in node:
-        # Block ID
-        if isinstance(item, str):
-            blocks.append(item)
+    # 1. Parse Block YAMLs with Flag Filtering
+    for filename in os.listdir(block_path):
+        if filename.endswith('.block.yml'):
+            try:
+                with open(os.path.join(block_path, filename), 'r') as f:
+                    data = yaml.safe_load(f)
+                    if not data or 'id' not in data: continue
+                    
+                    # FLAG FILTERING
+                    flags = data.get('flags', [])
+                    if isinstance(flags, list) and 'hide' in flags:
+                        continue
+                    
+                    b_id = data['id']
+                    # Use replace for precise bracket removal
+                    raw_cat = data.get('category', 'Misc')
+                    clean_cat = raw_cat.replace('[', '').replace(']', '')
+                    
+                    block_registry[b_id] = {
+                        'id': b_id,
+                        'label': data.get('label', b_id),
+                        'category': clean_cat,
+                        "parameters": data.get("parameters", {}),
+                        "inputs": data.get("inputs", []),
+                        "outputs": data.get("outputs", []),
+                        "flags": data.get("flags", {}),
+                    }
+            except: continue
 
-        # Subcategory
-        elif isinstance(item, dict):
-            for name, contents in item.items():
-                result[name] = parse_tree_node(contents)
+    # 2. Build the nested dictionary structure
+    final_skeleton = {}
 
-    if blocks:
-        result["blocks"] = blocks
+    def insert_into_dict(path, block_data):
+        # Ensure path is clean of brackets before splitting
+        clean_p = path.replace('[', '').replace(']', '')
+        parts = [p.strip() for p in clean_p.split('/') if p]
+        
+        curr = final_skeleton
+        for i, part in enumerate(parts):
+            if part not in curr:
+                curr[part] = {'_blocks': []}
+            
+            if i == len(parts) - 1:
+                if not any(b['id'] == block_data['id'] for b in curr[part]['_blocks']):
+                    curr[part]['_blocks'].append(block_data)
+            
+            # Move deeper into the tree
+            # Ensure we don't accidentally overwrite a limb dict with something else
+            if not isinstance(curr[part], dict):
+                curr[part] = {'_blocks': []}
+                
+            curr = curr[part]
 
-    return result
+    # 3. Parse Tree YAMLs (The Hierarchy Overrides)
+    overridden_ids = set()
 
+    def process_tree_entry(current_path, entry):
+        """
+        Recursively walks through tree.yml entries.
+        entry can be: a list of IDs, a single ID string, or a nested dict.
+        """
+        if isinstance(entry, list):
+            for item in entry:
+                process_tree_entry(current_path, item)
+        elif isinstance(entry, dict):
+            for sub_path, sub_entry in entry.items():
+                # Join the path (e.g., 'Core' + 'Type Converters')
+                new_path = f"{current_path}/{sub_path}"
+                process_tree_entry(new_path, sub_entry)
+        elif isinstance(entry, str):
+            # This is an actual Block ID
+            if entry in block_registry:
+                insert_into_dict(current_path, block_registry[entry])
+                overridden_ids.add(entry)
 
-def parse_tree_file(path):
-    with open(path, "r") as f:
-        data = yaml.safe_load(f)
+    # Now run the updated parser
+    tree_files = [f for f in os.listdir(block_path) if f.endswith('.tree.yml')]
+    for filename in tree_files:
+        try:
+            with open(os.path.join(block_path, filename), 'r') as f:
+                data = yaml.safe_load(f)
+                if not data: continue
+                # The top level of tree.yml is always a dict of paths
+                for path_str, content in data.items():
+                    process_tree_entry(path_str, content)
+        except Exception as e:
+            print(f"Error in {filename}: {e}")
 
-    tree = {}
+    # 4. Add remaining blocks via default categories
+    for b_id, meta in block_registry.items():
+        if b_id not in overridden_ids:
+            insert_into_dict(meta['category'], meta)
 
-    for root_name, contents in data.items():
-        tree[root_name] = parse_tree_node(contents)
-
-    return tree
-
-def parse_all_tree_files(tree_dir="/usr/share/gnuradio/grc/blocks"):
-    merged = {}
-
-    for path in Path(tree_dir).glob("*.tree.yml"):
-        tree = parse_tree_file(path)
-
-        for root, content in tree.items():
-            merged.setdefault(root, {})
-            merged[root].update(content)
-
-    return merged
-
-def attach_block_metadata(tree, block_defs):
-    def recurse(node):
+    # 5. Recursive Sort
+    def sort_recursive(node):
         if isinstance(node, dict):
-            for key, value in node.items():
-                recurse(value)
-
-        elif isinstance(node, list):
-            enriched = []
-            for item in node:
-                if isinstance(item, str) and item in block_defs:
-                    enriched.append(block_defs[item])
+            sorted_node = {}
+            for k in sorted(node.keys()):
+                if k == '_blocks':
+                    if node[k]:
+                        sorted_node[k] = sorted(node[k], key=lambda x: x['label'].lower())
                 else:
-                    recurse(item)
-                    enriched.append(item)
+                    res = sort_recursive(node[k])
+                    if res:
+                        sorted_node[k] = res
+            return sorted_node
+        return node
 
-            node.clear()
-            node.extend(enriched)
+    return sort_recursive(final_skeleton)
 
-    recurse(tree)
+def get_block_info():
+    tree = get_full_gr_tree()
     return tree
 
-def parse_block_file(path):
-    with open(path, "r") as f:
-        data = yaml.safe_load(f)
-
-    block_id = data.get("id")
-    if not block_id:
-        return None
-
-    return {
-        "id": block_id,
-        "label": data.get("label", block_id),
-        "category": data.get("category", ""),
-        "parameters": data.get("parameters", {}),
-        "inputs": data.get("inputs", []),
-        "outputs": data.get("outputs", []),
-        "flags": data.get("flags", {}),
-        "raw": data,  # keep full definition if needed
-    }
-
-
-def load_all_block_defs(block_dir="/usr/share/gnuradio/grc/blocks"):
-    block_defs = {}
-
-    for path in Path(block_dir).glob("*.block.yml"):
-        block = parse_block_file(path)
-        if block:
-            block_defs[block["id"]] = block
-
-    return block_defs
+if __name__ == "__main__":
+    full_tree = get_full_gr_tree()
+    print(json.dumps(full_tree, indent=4))
