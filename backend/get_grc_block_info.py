@@ -2,6 +2,8 @@ import os
 import yaml
 import json
 
+
+
 def get_full_gr_tree(block_path='/usr/share/gnuradio/grc/blocks'):
     block_registry = {}
 
@@ -30,7 +32,13 @@ def get_full_gr_tree(block_path='/usr/share/gnuradio/grc/blocks'):
                         "parameters": data.get("parameters", {}),
                         "inputs": data.get("inputs", []),
                         "outputs": data.get("outputs", []),
+                        "asserts": data.get("asserts", []),
+                        "templates": data.get("templates", []),
+                        "cpp_templates": data.get("cpp_templates", []),
+                        "documentation": data.get("documentation", None),
+                        "file_format": data.get("file_format", None),
                         "flags": data.get("flags", {}),
+                        "file": filename,
                     }
             except: continue
 
