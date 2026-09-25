@@ -16,6 +16,7 @@ import { baseName, dirName, saveFlowgraph } from "./files";
 import { generateScript, runFlowgraph, runStatus, stopFlowgraph } from "./run";
 import { DEFAULT_LAYOUT, saveDoc } from "./session";
 import useHistory from "./useHistory";
+import { declutter } from "./declutter";
 
 const MAX_STATUS_ENTRIES = 2000;
 const RUN_POLL_MS = 500;
@@ -127,7 +128,7 @@ export default function FlowEditor({
   const [start] = useState(() => initialState(initial));
   const [nodes, setNodes, onNodesChange] = useNodesState(start.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(start.edges);
-  const { screenToFlowPosition, getViewport } = useReactFlow();
+  const { screenToFlowPosition, getViewport, fitView } = useReactFlow();
 
   // Current file (relative to the server's flowgraph folder) and unsaved-change tracking
   const [currentPath, setCurrentPath] = useState(start.path);
@@ -237,6 +238,55 @@ export default function FlowEditor({
     checkpoint();
     setEdges((eds) => reconnectEdge(oldEdge, connection, eds));
   }, [checkpoint, setEdges]);
+
+  // Declutter: measure every block and its ports as drawn, lay them out
+  // automatically (declutter.js) and apply the result as one undo step
+  const [decluttering, setDecluttering] = useState(false);
+  const fitAfterLayoutRef = useRef(false);
+  const measureBlocks = () => {
+    const zoom = getViewport().zoom;
+    const root = reactFlowWrapper.current;
+    return nodesRef.current.flatMap((n) => {
+      const el = root.querySelector(`.react-flow__node[data-id="${CSS.escape(n.id)}"]`);
+      if (!el) return [];
+      const box = el.getBoundingClientRect();
+      const handles = [...el.querySelectorAll(".react-flow__handle")].map((h) => {
+        const r = h.getBoundingClientRect();
+        return {
+          key: h.dataset.handleid,
+          dir: h.classList.contains("target") ? "in" : "out",
+          left: (r.left - box.left) / zoom,
+          right: (r.right - box.left) / zoom,
+          y: (r.top + r.height / 2 - box.top) / zoom,
+        };
+      });
+      return [{
+        id: n.id, blockId: n.data.blockId, x: n.position.x, y: n.position.y,
+        width: box.width / zoom, height: box.height / zoom, handles,
+      }];
+    });
+  };
+  const runDeclutter = async () => {
+    setDecluttering(true);
+    try {
+      const positions = await declutter(measureBlocks(), edgesRef.current);
+      checkpoint();
+      fitAfterLayoutRef.current = true;
+      setNodes((nds) => nds.map((n) => (positions.has(n.id) ? { ...n, position: positions.get(n.id) } : n)));
+    } catch (err) {
+      logStatus(`Declutter failed: ${err.message}`, true);
+    } finally {
+      setDecluttering(false);
+    }
+  };
+
+  // Zoom to fit once React Flow has the new positions (its store is updated
+  // by an effect inside <ReactFlow>, which runs before this one)
+  useEffect(() => {
+    if (!fitAfterLayoutRef.current) return;
+    fitAfterLayoutRef.current = false;
+    requestAnimationFrame(() => fitView({ padding: 0.1, maxZoom: 1, duration: 300 }));
+  }, [nodes, fitView]);
 
   // Keyboard undo/redo for the visible tab, unless typing in a field or a
   // dialog is open (fields keep the browser's own undo)
@@ -478,6 +528,14 @@ export default function FlowEditor({
           title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
         >
           Redo
+        </button>
+        <button
+          style={{ ...styles.toolbarButton, ...(decluttering ? styles.disabledButton : {}) }}
+          onClick={runDeclutter}
+          disabled={decluttering}
+          title="Arrange the blocks automatically (undo with Ctrl+Z)"
+        >
+          Declutter
         </button>
         <button
           style={styles.toolbarButton}

@@ -70,6 +70,25 @@ output.
   per browser: another browser or a private window starts fresh, and if the
   `.grc` changes on disk the restored tab still shows its own copy.
 
+## Declutter
+
+The Declutter button arranges the flowgraph automatically (`src/declutter.js`),
+as one undo step, then zooms to fit:
+
+- Blocks with ports are laid out left to right by [ELK](https://eclipse.dev/elk/)'s
+  layered algorithm (`elkjs`), which is made for dataflow diagrams: sources on
+  the left, sinks on the right, blocks ordered to avoid crossing wires and
+  aligned to keep wires straight. ELK is given each block's measured size and
+  exact port positions (including ports sticking out past the block), so e.g.
+  the sources feeding `in0` and `in1` of a block are stacked in that order.
+- Separate, unconnected parts are stacked, biggest first.
+- Blocks without ports (Options, variables, GUI widgets, notes, ...) go in rows
+  across the top: Options, then variables, then the rest.
+
+ELK is ~1.4 MB, so it's in its own chunk, loaded the first time Declutter is
+used. In a flowgraph with a loop, the wire going back is drawn across the
+blocks between its ends (React Flow draws simple curves, not routed wires).
+
 ## Panels
 
 The bottom panels (Status and Block Properties) and the Blocks panel are
