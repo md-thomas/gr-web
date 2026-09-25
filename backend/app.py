@@ -2,6 +2,7 @@ from flask import Flask, send_from_directory, jsonify, request
 import yaml
 import json
 import os
+import argparse
 
 import get_grc_block_info as gbi
 
@@ -52,4 +53,7 @@ def generate():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=5050)
+    args = parser.parse_args()
+    app.run(debug=True, port=args.port)

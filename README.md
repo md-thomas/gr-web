@@ -9,8 +9,13 @@ frontend
 
 backend
 - this is where the python backend stuff lives
-- this will startup a flask web backend so you can connect to http://localhost:5000 to view the webpage 
+- this will startup a flask web backend so you can connect to http://localhost:5050 to view the webpage 
     - python app.py 
 
 
 
+
+start.sh
+- builds the frontend if needed and starts the backend
+    - ./start.sh          (default port 5050)
+    - ./start.sh 8080     (custom port)
