@@ -124,7 +124,11 @@ Handle ids follow GRC port keys: stream ports are numbered (`"0"`, `"1"`, ...)
 and message ports use their id (`"cmd"`), so edges map directly onto `.grc`
 connections.
 
-## Keyboard
+## Keyboard and mouse
 
-- Delete / Backspace – delete selected blocks and edges (the Options block can't be deleted)
+- Delete / Backspace – delete selected blocks and wires (the Options block can't be deleted)
 - Ctrl+C / Ctrl+V (Cmd on macOS) – copy and paste blocks
+- Click a wire to select it (it turns blue)
+- Drag from an output port to an input port to connect them; drag either end
+  of an existing wire to another port to move it there (dropping it anywhere
+  else leaves the wire where it was)

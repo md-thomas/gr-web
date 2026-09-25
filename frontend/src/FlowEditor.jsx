@@ -3,7 +3,7 @@
 // Each tab in App is a FlowEditor; all stay mounted so hidden tabs keep their
 // state and keep following their running flowgraph's output.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import ReactFlow, { useNodesState, useEdgesState, useReactFlow, addEdge } from "reactflow";
+import ReactFlow, { useNodesState, useEdgesState, useReactFlow, addEdge, reconnectEdge } from "reactflow";
 import { useBlockLibrary } from "./blocks/useBlockLibrary";
 import { nodeTypes, nodeTypeFor } from "./blocks/registry";
 import { uniqueName } from "./blocks/blockModel";
@@ -200,6 +200,14 @@ export default function FlowEditor({
   );
 
   const onConnect = useCallback((params) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
+
+  // Dragging a wire's end onto another port moves the wire there. Dropping it
+  // anywhere else leaves the wire as it was; wires are only deleted with the
+  // Delete key.
+  const onReconnect = useCallback(
+    (oldEdge, connection) => setEdges((eds) => reconnectEdge(oldEdge, connection, eds)),
+    [setEdges]
+  );
 
   // Keep this tab in the browser so a page refresh restores it (session.js)
   const persistTimerRef = useRef(null);
@@ -465,6 +473,7 @@ export default function FlowEditor({
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onReconnect={onReconnect}
             nodeTypes={nodeTypes}
             defaultEdgeOptions={EDGE_OPTIONS}
             deleteKeyCode={["Delete", "Backspace"]}

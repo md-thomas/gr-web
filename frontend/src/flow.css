@@ -1,0 +1,25 @@
+/* Overrides for React Flow's default styles (loaded after reactflow/dist/style.css) */
+
+/* Arrow cursor over blocks and wires, also while dragging a block. The empty
+   canvas keeps its grab cursor (panning) and ports keep a crosshair (wiring). */
+.react-flow .react-flow__node,
+.react-flow .react-flow__node.dragging,
+.react-flow .react-flow__nodesselection-rect,
+.react-flow .react-flow__edge {
+  cursor: default;
+}
+
+/* Wires set their color inline (EDGE_OPTIONS in FlowEditor.jsx), which hides
+   React Flow's selected style, so highlight hovered and selected wires here */
+.react-flow .react-flow__edge:hover .react-flow__edge-path {
+  stroke: #4a8fd8 !important;
+}
+.react-flow .react-flow__edge.selected .react-flow__edge-path {
+  stroke: #0066cc !important;
+  stroke-width: 3 !important;
+}
+
+/* Grab the end of a wire to drag it to another port, or off to disconnect it */
+.react-flow .react-flow__edgeupdater {
+  cursor: move;
+}

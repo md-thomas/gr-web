@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ReactFlowProvider } from "reactflow";
 import "reactflow/dist/style.css";
+import "./flow.css";
 import { BlockLibraryProvider } from "./blocks/BlockLibrary";
 import FlowEditor from "./FlowEditor";
 import FileDialog from "./components/FileDialog";
