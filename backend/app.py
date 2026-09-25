@@ -86,9 +86,9 @@ def get_blocks():
         blocks = json.load(f)
     return blocks
 
-# The single flowgraph process (like GRC, one runs at a time)
-flowgraph_runner = runner.FlowgraphRunner()
-atexit.register(flowgraph_runner.stop)
+# Running flowgraphs, one per .grc file
+flowgraph_runs = runner.RunManager()
+atexit.register(flowgraph_runs.stop_all)
 
 
 def saved_grc_path(body):
@@ -108,31 +108,41 @@ def generate():
         return error(str(e))
     return jsonify({"status": "ok", "script": script, "output": output})
 
-# Generate and run a saved .grc: {path}
+# Generate and run a saved .grc: {path}. 409 if that file is already running.
 @app.route("/api/run", methods=["POST"])
 def run_flowgraph():
     try:
         path = saved_grc_path(request.get_json() or {})
     except PathError as e:
         return error(str(e))
+    rel_path = rel_to_root(path)
     try:
-        output = flowgraph_runner.start(path, rel_to_root(path))
+        output = flowgraph_runs.start(path, rel_path)
     except runner.RunError as e:
         status = 409 if "already running" in str(e) else 400
         return error(str(e), status)
-    return jsonify({"status": "ok", "output": output, **flowgraph_runner.status()})
+    return jsonify({"status": "ok", "output": output, **flowgraph_runs.get(rel_path).status()})
 
-# Stop the running flowgraph
+# Stop a running flowgraph: {path}
 @app.route("/api/run/stop", methods=["POST"])
 def stop_flowgraph():
-    if not flowgraph_runner.stop():
-        return error("No flowgraph is running", 409)
+    path = (request.get_json() or {}).get("path")
+    if not flowgraph_runs.stop(path):
+        return error(f"{path} is not running", 409)
     return jsonify({"status": "ok"})
 
-# Run state and output lines numbered >= since: ?since=<n>
+# Run state and output lines numbered >= since: ?path=<.grc>&since=<n>
 @app.route("/api/run/status", methods=["GET"])
 def run_status():
-    return jsonify(flowgraph_runner.status(request.args.get("since", 0, type=int)))
+    run = flowgraph_runs.get(request.args.get("path"))
+    if run is None:
+        return error("No run for that flowgraph", 404)
+    return jsonify(run.status(request.args.get("since", 0, type=int)))
+
+# Paths of the flowgraphs that are running
+@app.route("/api/runs", methods=["GET"])
+def list_runs():
+    return jsonify({"running": flowgraph_runs.running()})
 
 # List a folder under the flowgraph root: ?path=<relative folder>
 @app.route("/api/files", methods=["GET"])

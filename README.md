@@ -26,8 +26,8 @@ the backend. After changing frontend code, rebuild with `npm run build` in
 Working: block palette from the installed GNU Radio blocks, placing and wiring
 blocks, editing parameters, copy/paste/delete, New / Open / Save / Save As for
 `.grc` files in the server's flowgraph folder (`--dir`, default `~/gr-web`),
-and Generate / Run / Kill. Files are compatible with GNU Radio Companion in
-both directions.
+Generate / Run / Kill, and tabs, so several flowgraphs can be open and running
+at once. Open tabs, including unsaved changes, survive a page refresh. Files are compatible with GNU Radio Companion in both directions.
 
 Flowgraphs run on the server, as the user running `start.sh`: QT GUI windows
 open on the server's display (so on your desktop when running locally), and

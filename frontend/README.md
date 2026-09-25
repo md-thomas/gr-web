@@ -48,10 +48,33 @@ JSON.
 - **`src/components/BlockInspector.jsx`** – the Block Properties panel; edits
   the selected block's ID and parameters.
 
+## Tabs
+
+Each open flowgraph is a tab (`src/App.jsx`), and each tab is a complete
+`src/FlowEditor.jsx`: toolbar, canvas, status output and properties. All tabs
+stay mounted, so a flowgraph in a background tab keeps running and collecting
+output.
+
+- New and **+** open a new tab; Open opens the file in a new tab (reusing the
+  current tab if it's an untouched new one), or switches to it if it's already
+  open.
+- Tabs show `*` for unsaved changes and a green `●` while running.
+- Closing a tab (× or middle-click) asks first if it has unsaved changes or is
+  running; closing a running tab kills its flowgraph.
+- Copy/paste works between tabs.
+- Open tabs survive a page refresh (`src/session.js`): each tab's blocks,
+  wires, file, unsaved changes and view are kept in the browser's
+  localStorage, and tabs whose flowgraph is still running reattach to it (a
+  running flowgraph with no tab gets one). Status messages aren't kept, but a
+  running flowgraph's output is fetched again from the server. The tabs are
+  per browser: another browser or a private window starts fresh, and if the
+  `.grc` changes on disk the restored tab still shows its own copy.
+
 ## Files
 
 New / Open… / Save / Save As… work on `.grc` files in the server's flowgraph
-folder (`./start.sh --dir`, default `~/gr-web`).
+folder (`./start.sh --dir`, default `~/gr-web`). A file can only be open in one
+tab at a time.
 
 - **`src/files.js`** – backend calls for listing folders and opening/saving.
 - **`src/components/FileDialog.jsx`** – folder browser used by Open and Save As
@@ -60,8 +83,7 @@ folder (`./start.sh --dir`, default `~/gr-web`).
 
 Save writes to the current file without asking; Save As asks before replacing
 a different file. The toolbar shows the current file, with `*` when there are
-unsaved changes; New and Open ask before discarding them, and the browser warns
-before closing the tab.
+unsaved changes. Unsaved changes are kept across page refreshes (see Tabs).
 
 ## Generate / Run / Kill
 
@@ -73,8 +95,8 @@ before closing the tab.
   disabled until it finishes.
 - **Kill** stops it.
 
-Reloading the page while a flowgraph runs reattaches to it. `grcc` validation
-errors and Python tracebacks appear in the Status panel.
+Each tab runs its own flowgraph, so several can run at once. `grcc` validation
+errors and Python tracebacks appear in that tab's Status panel.
 
 - **`src/run.js`** – backend calls for generate/run/stop/status.
 - **`src/components/StatusPanel.jsx`** – status messages and flowgraph output;

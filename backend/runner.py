@@ -11,15 +11,17 @@ from collections import deque
 import yaml
 
 '''
-Generate and run flowgraphs, one at a time (like GRC).
+Generate and run flowgraphs.
 
 generate() runs grcc on a .grc file, which writes the Python script next to it.
 FlowgraphRunner starts that script as a child process and collects its output
-(stdout and stderr) so the frontend can poll it.
+(stdout and stderr) so the frontend can poll it. RunManager keeps one runner
+per .grc file, so several flowgraphs can run at once but each file only once.
 '''
 
 GRCC = "grcc"
-MAX_LINES = 5000  # output lines kept in memory
+MAX_LINES = 5000  # output lines kept in memory per flowgraph
+MAX_FINISHED = 20  # finished runs kept for their output
 DEFAULT_RUN_COMMAND = "{python} -u {filename}"
 
 
@@ -148,3 +150,43 @@ class FlowgraphRunner:
                 "lines": lines,
                 "next": self._next,
             }
+
+
+class RunManager:
+    """Runners keyed by .grc path (relative to the flowgraph root)."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._runners = {}
+
+    def start(self, grc_path, rel_path):
+        with self._lock:
+            runner = self._runners.get(rel_path)
+            if runner is None:
+                runner = self._runners[rel_path] = FlowgraphRunner()
+            self._evict_finished()
+        return runner.start(grc_path, rel_path)
+
+    def _evict_finished(self):
+        finished = [p for p, r in self._runners.items() if r.state != "running"]
+        for path in finished[:max(0, len(finished) - MAX_FINISHED)]:
+            del self._runners[path]
+
+    def get(self, rel_path):
+        with self._lock:
+            return self._runners.get(rel_path)
+
+    def stop(self, rel_path):
+        runner = self.get(rel_path)
+        return runner.stop() if runner else False
+
+    def stop_all(self):
+        with self._lock:
+            runners = list(self._runners.values())
+        for runner in runners:
+            runner.stop()
+
+    def running(self):
+        """Paths of the flowgraphs that are running."""
+        with self._lock:
+            return [p for p, r in self._runners.items() if r.state == "running"]

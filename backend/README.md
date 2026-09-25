@@ -34,9 +34,10 @@ Requirements: `flask`, `pyyaml`.
 | GET    | `/api/flowgraph?path=`  | Opens a `.grc` file as `{blocks, connections}`  |
 | POST   | `/api/flowgraph`        | Saves `{path, flow: {nodes, edges}, overwrite}` as `.grc`; 409 if it exists and `overwrite` is false |
 | POST   | `/api/generate`         | Runs `grcc` on a saved `.grc`: `{path}` -> `{script, output}` |
-| POST   | `/api/run`              | Generates and starts a saved `.grc`: `{path}`; 409 if one is already running |
-| POST   | `/api/run/stop`         | Stops the running flowgraph                     |
-| GET    | `/api/run/status?since=`| Run state and output lines numbered `>= since`  |
+| POST   | `/api/run`              | Generates and starts a saved `.grc`: `{path}`; 409 if that file is already running |
+| POST   | `/api/run/stop`         | Stops a running flowgraph: `{path}`             |
+| GET    | `/api/run/status?path=&since=` | Run state and output lines numbered `>= since` |
+| GET    | `/api/runs`             | Paths of the flowgraphs that are running        |
 
 All `path` values are relative to the flowgraph folder. Paths that resolve
 outside it (absolute paths, `..`, symlinks pointing elsewhere) are rejected, and
@@ -67,12 +68,13 @@ starts the script using the flowgraph's Run Command option (default
 `{python} -u {filename}`, with `{python}` being the server's interpreter), like
 GRC does.
 
-- One flowgraph runs at a time.
-- stdout and stderr are collected (last 5000 lines); the frontend polls
-  `/api/run/status` with the number of the next line it needs.
+- Several flowgraphs can run at once, each `.grc` file once (`RunManager`).
+  Two flowgraphs using the same SDR will conflict, as they would in GRC.
+- stdout and stderr are collected per flowgraph (last 5000 lines); the frontend
+  polls `/api/run/status` with the number of the next line it needs.
 - stdin is kept open, so "Prompt for Exit" flowgraphs keep running until killed.
 - Kill sends SIGTERM to the flowgraph's process group, then SIGKILL after 3 s.
-  The running flowgraph is also stopped when the server exits normally.
+  Running flowgraphs are also stopped when the server exits normally.
 - The flowgraph runs as the server's user, with the server's environment:
   QT GUI windows open on the server's display.
 

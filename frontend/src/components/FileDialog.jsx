@@ -12,7 +12,8 @@ const listWithFallback = (path) => listFiles(path).catch((err) => {
 });
 
 // mode: "open" | "save". onConfirm(path, { overwrite }) receives a path
-// relative to the flowgraph folder.
+// relative to the flowgraph folder; if it returns a promise that rejects, the
+// error is shown in the dialog.
 export default function FileDialog({ mode, initialDir = "", initialName = "", onConfirm, onCancel }) {
   const [dir, setDir] = useState(initialDir);
   const [listing, setListing] = useState(null);
@@ -34,6 +35,13 @@ export default function FileDialog({ mode, initialDir = "", initialName = "", on
     return n && !n.endsWith(".grc") ? `${n}.grc` : n;
   };
 
+  const submit = (path, overwrite) => {
+    Promise.resolve(onConfirm(path, { overwrite })).catch((err) => {
+      setConfirmReplace(null);
+      setError(err.message);
+    });
+  };
+
   const confirm = (chosen = fileName()) => {
     if (!chosen) return;
     if (chosen.includes("/")) {
@@ -45,7 +53,7 @@ export default function FileDialog({ mode, initialDir = "", initialName = "", on
       setConfirmReplace(path);
       return;
     }
-    onConfirm(path, { overwrite: false });
+    submit(path, false);
   };
 
   const createFolder = () => {
@@ -65,7 +73,7 @@ export default function FileDialog({ mode, initialDir = "", initialName = "", on
         title="Replace file?"
         message={`${confirmReplace} already exists. Replace it?`}
         confirmLabel="Replace"
-        onConfirm={() => onConfirm(confirmReplace, { overwrite: true })}
+        onConfirm={() => submit(confirmReplace, true)}
         onCancel={() => setConfirmReplace(null)}
       />
     );
