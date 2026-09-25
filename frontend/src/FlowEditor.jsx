@@ -11,13 +11,20 @@ import BlockPalette, { BLOCK_DRAG_TYPE } from "./components/BlockPalette";
 import BlockInspector from "./components/BlockInspector";
 import FileDialog from "./components/FileDialog";
 import StatusPanel from "./components/StatusPanel";
+import Splitter from "./components/Splitter";
 import { baseName, dirName, saveFlowgraph } from "./files";
 import { generateScript, runFlowgraph, runStatus, stopFlowgraph } from "./run";
-import { saveDoc } from "./session";
+import { DEFAULT_LAYOUT, saveDoc } from "./session";
 
 const MAX_STATUS_ENTRIES = 2000;
 const RUN_POLL_MS = 500;
 const PERSIST_DELAY_MS = 300;
+
+// Panel size limits (px); the canvas keeps at least MIN_CANVAS in each direction
+const MIN_BOTTOM = 60;
+const MIN_PALETTE = 140;
+const MIN_CANVAS = 200;
+const clamp = (value, min, max) => Math.min(Math.max(value, min), Math.max(min, max));
 
 // Node data: { blockId, name, params, grcStates? } where params only holds
 // values that differ from the block's defaults (or were set explicitly), and
@@ -110,8 +117,10 @@ const isTyping = (event) => ["INPUT", "TEXTAREA", "SELECT"].includes(event.targe
 //   onNew(), onOpen() - App actions for the toolbar
 //   clipboard, setClipboard - shared across tabs
 //   isOpenElsewhere(path, tabId) - true if another tab has that file open
+//   layout, onLayoutChange(layout) - panel sizes, shared by all tabs (session.js)
 export default function FlowEditor({
   tabId, initial, active, tabBar, onMeta, onNew, onOpen, clipboard, setClipboard, isOpenElsewhere,
+  layout, onLayoutChange,
 }) {
   const { tree, byId, error } = useBlockLibrary();
   const [start] = useState(() => initialState(initial));
@@ -144,6 +153,25 @@ export default function FlowEditor({
 
   const reactFlowWrapper = useRef(null);
   const nodeCounterRef = useRef(0);
+
+  // Resizable panels: sizes are relative to the layout when a drag started
+  const editorRef = useRef(null);
+  const bottomRef = useRef(null);
+  const dragStartRef = useRef(layout);
+  const startResize = () => { dragStartRef.current = layout; };
+  const resizeBottom = (dy) => onLayoutChange({
+    ...dragStartRef.current,
+    bottomHeight: clamp(dragStartRef.current.bottomHeight - dy, MIN_BOTTOM, editorRef.current.clientHeight - MIN_CANVAS),
+  });
+  const resizePalette = (dx) => onLayoutChange({
+    ...dragStartRef.current,
+    paletteWidth: clamp(dragStartRef.current.paletteWidth - dx, MIN_PALETTE, editorRef.current.clientWidth - MIN_CANVAS),
+  });
+  const resizeStatus = (dx) => onLayoutChange({
+    ...dragStartRef.current,
+    statusFraction: clamp(dragStartRef.current.statusFraction + dx / bottomRef.current.clientWidth, 0.1, 0.9),
+  });
+  const resetLayout = (key) => onLayoutChange({ ...layout, [key]: DEFAULT_LAYOUT[key] });
 
   const selectedNodes = nodes.filter((n) => n.selected);
 
@@ -365,7 +393,13 @@ export default function FlowEditor({
 
   return (
     <div
-      style={{ ...styles.editor, ...(active ? styles.active : {}) }}
+      ref={editorRef}
+      style={{
+        ...styles.editor,
+        ...(active ? styles.active : {}),
+        // Stored sizes may be too big for a smaller window, so cap them too
+        gridTemplateRows: `40px auto minmax(0, 1fr) auto min(${layout.bottomHeight}px, 60vh)`,
+      }}
       data-tab={tabId}
       data-active={active}
       inert={active ? undefined : ""}
@@ -416,7 +450,7 @@ export default function FlowEditor({
 
       {tabBar}
 
-      <div style={styles.main}>
+      <div style={{ ...styles.main, gridTemplateColumns: `minmax(0, 1fr) auto min(${layout.paletteWidth}px, 60vw)` }}>
         <div
           ref={reactFlowWrapper}
           tabIndex={0}
@@ -442,14 +476,41 @@ export default function FlowEditor({
           />
         </div>
 
+        <Splitter
+          orientation="vertical"
+          title="Resize the Blocks panel"
+          onDragStart={startResize}
+          onDrag={resizePalette}
+          onReset={() => resetLayout("paletteWidth")}
+        />
+
         <div style={styles.blocks}>
           <strong>Blocks</strong>
           <BlockPalette tree={tree} error={error} onAdd={handleBlockDoubleClick} />
         </div>
       </div>
 
-      <div style={styles.bottom}>
+      <Splitter
+        orientation="horizontal"
+        title="Resize the bottom panels"
+        onDragStart={startResize}
+        onDrag={resizeBottom}
+        onReset={() => resetLayout("bottomHeight")}
+      />
+
+      <div
+        ref={bottomRef}
+        style={{ ...styles.bottom, gridTemplateColumns: `minmax(0, ${layout.statusFraction}fr) auto minmax(0, ${1 - layout.statusFraction}fr)` }}
+      >
         <StatusPanel entries={statusLog} style={styles.panel} onClear={() => setStatusLog([])} />
+
+        <Splitter
+          orientation="vertical"
+          title="Resize Status and Block Properties"
+          onDragStart={startResize}
+          onDrag={resizeStatus}
+          onReset={() => resetLayout("statusFraction")}
+        />
 
         <div style={styles.panel}>
           <strong>Block Properties</strong>
@@ -497,7 +558,6 @@ const styles = {
     position: "absolute",
     inset: 0,
     display: "grid",
-    gridTemplateRows: "40px auto 1fr 200px",
     overflow: "hidden",
     background: "#fff",
     zIndex: 0,
@@ -527,7 +587,6 @@ const styles = {
   },
   main: {
     display: "grid",
-    gridTemplateColumns: "1fr 240px",
     height: "100%",
     minHeight: 0,
   },
@@ -539,15 +598,12 @@ const styles = {
   },
   blocks: {
     background: "#f5f5f5",
-    borderLeft: "1px solid #ccc",
     padding: 10,
     overflowY: "auto",
     minHeight: 0,
   },
   bottom: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    borderTop: "1px solid #999",
     boxSizing: "border-box",
     height: "100%",
     minHeight: 0,

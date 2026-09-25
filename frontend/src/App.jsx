@@ -7,7 +7,7 @@ import FileDialog from "./components/FileDialog";
 import { ConfirmDialog } from "./components/Modal";
 import { baseName, dirName, openFlowgraph } from "./files";
 import { listRuns, stopFlowgraph } from "./run";
-import { loadSession, removeDoc, saveSessionIndex } from "./session";
+import { loadLayout, loadSession, removeDoc, saveLayout, saveSessionIndex } from "./session";
 
 const newTabId = () => `tab-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
@@ -67,6 +67,8 @@ function TabbedEditors({ start }) {
   const [clipboard, setClipboard] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [pendingClose, setPendingClose] = useState(null); // tab id waiting for confirmation
+  const [layout, setLayout] = useState(loadLayout); // panel sizes, shared by all tabs
+  useEffect(() => { saveLayout(layout); }, [layout]);
 
   // Latest values for callbacks that outlive a render
   const metasRef = useRef(metas);
@@ -210,6 +212,8 @@ function TabbedEditors({ start }) {
             clipboard={clipboard}
             setClipboard={setClipboard}
             isOpenElsewhere={isOpenElsewhere}
+            layout={layout}
+            onLayoutChange={setLayout}
           />
         </ReactFlowProvider>
       ))}

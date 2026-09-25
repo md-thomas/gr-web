@@ -68,3 +68,23 @@ export function saveDoc(tabId, { nodes, edges, ...rest }) {
 }
 
 export const removeDoc = (tabId) => remove(DOC_PREFIX + tabId);
+
+// Panel sizes, shared by all tabs
+const LAYOUT_KEY = "gr-web:layout";
+
+export const DEFAULT_LAYOUT = {
+  bottomHeight: 200, // px, Status + Block Properties
+  paletteWidth: 240, // px, Blocks panel
+  statusFraction: 0.5, // share of the bottom width given to Status
+};
+
+export function loadLayout() {
+  const saved = read(LAYOUT_KEY) || {};
+  const layout = { ...DEFAULT_LAYOUT };
+  for (const key of Object.keys(layout)) {
+    if (typeof saved[key] === "number" && Number.isFinite(saved[key])) layout[key] = saved[key];
+  }
+  return layout;
+}
+
+export const saveLayout = (layout) => write(LAYOUT_KEY, layout);

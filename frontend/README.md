@@ -70,6 +70,13 @@ output.
   per browser: another browser or a private window starts fresh, and if the
   `.grc` changes on disk the restored tab still shows its own copy.
 
+## Panels
+
+The bottom panels (Status and Block Properties) and the Blocks panel are
+resizable: drag the bars between them and the canvas, or between Status and
+Block Properties (`src/components/Splitter.jsx`). Double-click a bar to reset
+it. Sizes are shared by all tabs and kept in localStorage.
+
 ## Files
 
 New / Open… / Save / Save As… work on `.grc` files in the server's flowgraph
