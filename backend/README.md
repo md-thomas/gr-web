@@ -26,7 +26,10 @@ Requirements: `flask`, `pyyaml`.
 | GET    | `/`             | Serves `../frontend/dist/index.html`                    |
 | GET    | `/api/blocks`   | Returns the block tree from `grc_block_info.json`       |
 | POST   | `/run-flow`     | Accepts `{nodes, edges}`; currently only logs it        |
-| POST   | `/api/generate` | Placeholder; will convert a flowgraph to GNU Radio code |
+| POST   | `/api/generate` | Placeholder, not yet called by the frontend             |
+
+Nothing is saved on the server yet: there is no `.grc` output or code
+generation. The frontend's node format is described in `frontend/README.md`.
 
 ## Block library
 

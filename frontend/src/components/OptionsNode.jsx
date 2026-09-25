@@ -1,6 +1,14 @@
 import React from "react";
+import { useBlockDef } from "../blocks/useBlockLibrary";
+import { defaultParams, displayValue, paramList } from "../blocks/blockModel";
+
+const SHOWN = ["title", "author", "output_language", "generate_options"];
 
 export default function OptionsNode({ data }) {
+  const def = useBlockDef(data.blockId);
+  const params = def ? { ...defaultParams(def), ...data.params } : data.params || {};
+  const shown = def ? paramList(def).filter((p) => SHOWN.includes(p.id)) : [];
+
   return (
     <div
       style={{
@@ -12,11 +20,12 @@ export default function OptionsNode({ data }) {
         fontSize: 12,
       }}
     >
-      <strong>{data.label}</strong>
-      <div><strong>Title:</strong> {data.title}</div>
-      <div><strong>Author:</strong> {data.author}</div>
-      <div><strong>Output Language:</strong> {data.output_language}</div>
-      <div><strong>Generate Options:</strong> {data.generate_options}</div>
+      <strong>Options</strong>
+      {shown.map((p) => (
+        <div key={p.id}>
+          <strong>{p.label}:</strong> {displayValue(p, params[p.id])}
+        </div>
+      ))}
     </div>
   );
 }
