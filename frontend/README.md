@@ -9,7 +9,7 @@ React + [React Flow](https://reactflow.dev) (v11) flowgraph editor, built with V
     npm run build     # production build into dist/, served by the Flask backend
     npm run lint
 
-The dev server proxies `/api` and `/run-flow` to the backend at
+The dev server proxies `/api` to the backend at
 `http://localhost:5050`; set `BACKEND_URL` to point elsewhere
 (e.g. `BACKEND_URL=http://localhost:8080 npm run dev`).
 
@@ -48,6 +48,38 @@ JSON.
 - **`src/components/BlockInspector.jsx`** – the Block Properties panel; edits
   the selected block's ID and parameters.
 
+## Files
+
+New / Open… / Save / Save As… work on `.grc` files in the server's flowgraph
+folder (`./start.sh --dir`, default `~/gr-web`).
+
+- **`src/files.js`** – backend calls for listing folders and opening/saving.
+- **`src/components/FileDialog.jsx`** – folder browser used by Open and Save As
+  (breadcrumbs, New Folder, asks before replacing an existing file).
+- **`src/components/Modal.jsx`** – modal and confirm dialogs.
+
+Save writes to the current file without asking; Save As asks before replacing
+a different file. The toolbar shows the current file, with `*` when there are
+unsaved changes; New and Open ask before discarding them, and the browser warns
+before closing the tab.
+
+## Generate / Run / Kill
+
+- **Generate** saves (if there are unsaved changes; asking where if the
+  flowgraph has never been saved), then runs `grcc` on the server, which writes
+  the `.py` next to the `.grc`.
+- **Run** does the same and starts the flowgraph. Its output streams into the
+  Status panel (polled every 500 ms); the toolbar shows "● running" and Run is
+  disabled until it finishes.
+- **Kill** stops it.
+
+Reloading the page while a flowgraph runs reattaches to it. `grcc` validation
+errors and Python tracebacks appear in the Status panel.
+
+- **`src/run.js`** – backend calls for generate/run/stop/status.
+- **`src/components/StatusPanel.jsx`** – status messages and flowgraph output;
+  stays scrolled to the bottom unless you scroll up.
+
 ## Flowgraph data
 
 Each React Flow node stores:
@@ -55,7 +87,8 @@ Each React Flow node stores:
     data: {
       blockId: "analog_sig_source_x",   // GRC block id
       name: "analog_sig_source_x_0",    // instance name (GRC "ID")
-      params: { type: "float" }         // only values changed from the defaults
+      params: { type: "float" },        // only values changed from the defaults
+      grcStates: { state: "disabled" }  // optional, kept from an opened .grc
     }
 
 Handle ids follow GRC port keys: stream ports are numbered (`"0"`, `"1"`, ...)

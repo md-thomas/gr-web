@@ -21,6 +21,7 @@ export default function OptionsNode({ data }) {
       }}
     >
       <strong>Options</strong>
+      <div><strong>ID:</strong> {data.name}</div>
       {shown.map((p) => (
         <div key={p.id}>
           <strong>{p.label}:</strong> {displayValue(p, params[p.id])}

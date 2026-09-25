@@ -20,15 +20,13 @@ export default function BlockInspector({ node, def, onChange }) {
 
       <table style={styles.table}>
         <tbody>
-          {def.id !== "options" && (
-            <Row label="ID">
-              <input
-                style={styles.input}
-                value={node.data.name}
-                onChange={(e) => onChange({ name: e.target.value })}
-              />
-            </Row>
-          )}
+          <Row label="ID">
+            <input
+              style={styles.input}
+              value={node.data.name}
+              onChange={(e) => onChange({ name: e.target.value })}
+            />
+          </Row>
           {editable.map((p) => (
             <Row key={p.id} label={p.label ?? p.id}>
               <ParamInput param={p} value={params[p.id]} onChange={(v) => setParam(p.id, v)} />
