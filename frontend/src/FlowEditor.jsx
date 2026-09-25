@@ -15,6 +15,7 @@ import Splitter from "./components/Splitter";
 import { baseName, dirName, saveFlowgraph } from "./files";
 import { generateScript, runFlowgraph, runStatus, stopFlowgraph } from "./run";
 import { DEFAULT_LAYOUT, saveDoc } from "./session";
+import useHistory from "./useHistory";
 
 const MAX_STATUS_ENTRIES = 2000;
 const RUN_POLL_MS = 500;
@@ -175,10 +176,28 @@ export default function FlowEditor({
 
   const selectedNodes = nodes.filter((n) => n.selected);
 
-  // Keep a ref to the latest nodes so callbacks can compute unique names
+  // Latest nodes/edges for callbacks (unique names, undo checkpoints)
   const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+  useEffect(() => { edgesRef.current = edges; }, [edges]);
   const takenNames = () => new Set(nodesRef.current.map((n) => n.data.name));
+
+  // Undo/redo: every change below records a checkpoint before it's applied
+  const { checkpoint, undo, redo, canUndo, canRedo } = useHistory({
+    nodesRef, edgesRef, setNodes, setEdges, snapshotOf: flowSnapshot,
+  });
+
+  // Block/wire deletions come through React Flow's change handlers; a block
+  // drag is recorded when it starts (onNodeDragStart below)
+  const handleNodesChange = useCallback((changes) => {
+    if (changes.some((c) => c.type === "remove")) checkpoint();
+    onNodesChange(changes);
+  }, [checkpoint, onNodesChange]);
+  const handleEdgesChange = useCallback((changes) => {
+    if (changes.some((c) => c.type === "remove")) checkpoint();
+    onEdgesChange(changes);
+  }, [checkpoint, onEdgesChange]);
 
   // Tell App what the tab bar needs to show
   useEffect(() => {
@@ -187,27 +206,52 @@ export default function FlowEditor({
 
   const addBlock = useCallback(
     (blockId, position) => {
+      checkpoint();
       setNodes((nds) => [...nds, makeNode(blockId, position, new Set(nds.map((n) => n.data.name)))]);
     },
-    [setNodes]
+    [checkpoint, setNodes]
   );
 
+  // Edits to the same field of the same block are one undo step while typing
   const updateNodeData = useCallback(
     (id, patch) => {
+      const node = nodesRef.current.find((n) => n.id === id);
+      const fields = "name" in patch
+        ? ["name"]
+        : Object.keys(patch.params || {}).filter((k) => patch.params[k] !== node?.data.params[k]);
+      checkpoint(`data:${id}:${fields.join(",")}`);
       setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)));
     },
-    [setNodes]
+    [checkpoint, setNodes]
   );
 
-  const onConnect = useCallback((params) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
+  const onConnect = useCallback((params) => {
+    checkpoint();
+    setEdges((eds) => addEdge(params, eds));
+  }, [checkpoint, setEdges]);
 
   // Dragging a wire's end onto another port moves the wire there. Dropping it
   // anywhere else leaves the wire as it was; wires are only deleted with the
   // Delete key.
-  const onReconnect = useCallback(
-    (oldEdge, connection) => setEdges((eds) => reconnectEdge(oldEdge, connection, eds)),
-    [setEdges]
-  );
+  const onReconnect = useCallback((oldEdge, connection) => {
+    checkpoint();
+    setEdges((eds) => reconnectEdge(oldEdge, connection, eds));
+  }, [checkpoint, setEdges]);
+
+  // Keyboard undo/redo for the visible tab, unless typing in a field or a
+  // dialog is open (fields keep the browser's own undo)
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e) => {
+      const isMac = navigator.platform.toUpperCase().includes("MAC");
+      if (!(isMac ? e.metaKey : e.ctrlKey) || isTyping(e) || document.querySelector("[role=dialog]")) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); redo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active, undo, redo]);
 
   // Keep this tab in the browser so a page refresh restores it (session.js)
   const persistTimerRef = useRef(null);
@@ -392,11 +436,12 @@ export default function FlowEditor({
           return node;
         });
 
+        checkpoint();
         setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), ...pastedNodes]);
         event.preventDefault();
       }
     },
-    [selectedNodes, clipboard, setClipboard, setNodes]
+    [selectedNodes, clipboard, setClipboard, setNodes, checkpoint]
   );
 
   return (
@@ -418,6 +463,22 @@ export default function FlowEditor({
         <button style={styles.toolbarButton} onClick={onOpen}>Open…</button>
         <button style={styles.toolbarButton} onClick={save}>Save</button>
         <button style={styles.toolbarButton} onClick={askSavePath}>Save As…</button>
+        <button
+          style={{ ...styles.toolbarButton, ...(canUndo ? {} : styles.disabledButton) }}
+          onClick={undo}
+          disabled={!canUndo}
+          title="Undo (Ctrl+Z)"
+        >
+          Undo
+        </button>
+        <button
+          style={{ ...styles.toolbarButton, ...(canRedo ? {} : styles.disabledButton) }}
+          onClick={redo}
+          disabled={!canRedo}
+          title="Redo (Ctrl+Shift+Z or Ctrl+Y)"
+        >
+          Redo
+        </button>
         <button
           style={styles.toolbarButton}
           onClick={() => {
@@ -470,8 +531,10 @@ export default function FlowEditor({
           <ReactFlow
             nodes={nodes}
             edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
+            onNodesChange={handleNodesChange}
+            onEdgesChange={handleEdgesChange}
+            onNodeDragStart={() => checkpoint()}
+            onSelectionDragStart={() => checkpoint()}
             onConnect={onConnect}
             onReconnect={onReconnect}
             nodeTypes={nodeTypes}

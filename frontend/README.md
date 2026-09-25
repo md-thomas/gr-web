@@ -128,6 +128,11 @@ connections.
 
 - Delete / Backspace – delete selected blocks and wires (the Options block can't be deleted)
 - Ctrl+C / Ctrl+V (Cmd on macOS) – copy and paste blocks
+- Ctrl+Z – undo; Ctrl+Shift+Z or Ctrl+Y – redo (also the Undo/Redo buttons).
+  Each tab has its own history (`src/useHistory.js`, last 100 steps) of block
+  adds/deletes/moves, parameter edits (typing in one field is one step), and
+  wire changes. It isn't kept across a page refresh. In a text field these keys
+  undo the typing instead.
 - Click a wire to select it (it turns blue)
 - Drag from an output port to an input port to connect them; drag either end
   of an existing wire to another port to move it there (dropping it anywhere
