@@ -4,6 +4,8 @@ import json
 import os
 import argparse
 import atexit
+import socket
+import sys
 
 import get_grc_block_info as gbi
 import grc_file
@@ -231,12 +233,47 @@ def save_flowgraph():
 #    return send_from_directory(app.static_folder, "index.html")
 
 
+LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
+
+
+def lan_addresses():
+    """This machine's IPv4 addresses other than loopback, for printing URLs."""
+    addresses = set()
+    try:
+        # Connecting a UDP socket sends nothing; it just picks the outgoing interface
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("192.0.2.1", 9))
+            addresses.add(s.getsockname()[0])
+    except OSError:
+        pass
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            addresses.add(info[4][0])
+    except OSError:
+        pass
+    return sorted(a for a in addresses if not a.startswith("127."))
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=5050)
+    parser.add_argument("--host", default=os.environ.get("GR_WEB_HOST", "0.0.0.0"),
+                        help="address to listen on (default: 0.0.0.0, all interfaces, or $GR_WEB_HOST); "
+                             "use 127.0.0.1 to allow this machine only")
     parser.add_argument("--dir", default=DEFAULT_ROOT,
                         help="folder flowgraphs are opened from and saved to (default: ~/gr-web, or $GR_WEB_DIR)")
+    parser.add_argument("--debug", action="store_true",
+                        help="Flask debug mode (auto-reload and in-browser debugger); only with --host 127.0.0.1")
     args = parser.parse_args()
+
+    # The debugger can run arbitrary Python, so never expose it to the network
+    if args.debug and args.host not in LOOPBACK_HOSTS:
+        sys.exit("--debug is only allowed with --host 127.0.0.1: the Flask debugger can run code")
+
     set_flowgraph_root(args.dir)
     print(f"Flowgraph folder: {app.config['FLOWGRAPH_ROOT']}")
-    app.run(debug=True, port=args.port)
+    if args.host in ("0.0.0.0", "::"):
+        urls = [f"http://{a}:{args.port}" for a in ["localhost", *lan_addresses()]]
+        print("Open gr-web at: " + "  ".join(urls))
+        print("Anyone who can reach this port can open, save and run flowgraphs as this user.")
+    app.run(host=args.host, port=args.port, debug=args.debug)

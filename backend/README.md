@@ -7,18 +7,25 @@ library and flowgraph endpoints.
 
 From the project root:
 
-    ./start.sh                          # port 5050, flowgraphs in ~/gr-web
+    ./start.sh                          # port 5050, all interfaces, flowgraphs in ~/gr-web
     ./start.sh 8080                     # custom port
     ./start.sh --dir ~/gnuradio         # custom flowgraph folder
+    ./start.sh --host 127.0.0.1         # this machine only
+    ./start.sh --host 127.0.0.1 --debug # Flask debug mode (auto-reload)
 
 Or directly:
 
-    python app.py --port 5050 --dir ~/gr-web
+    python app.py --port 5050 --dir ~/gr-web --host 0.0.0.0
+
+`--host` defaults to `0.0.0.0` (all interfaces; `$GR_WEB_HOST` also works), so
+the app is reachable from other computers; see the network warning in the top-level
+README. `--debug` turns on Flask's auto-reloader and in-browser debugger, which
+can run arbitrary code, so it's refused unless `--host` is a loopback address.
 
 The flowgraph folder can also be set with the `GR_WEB_DIR` environment
 variable; `--dir` takes precedence. It is created if it doesn't exist.
 
-Then open http://localhost:5050. The frontend must be built first
+Then open http://localhost:5050, or one of the LAN addresses the server prints. The frontend must be built first
 (`npm run build` in `frontend/`); `start.sh` does this if `frontend/dist` is missing.
 
 Requirements: `flask`, `pyyaml`.

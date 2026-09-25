@@ -5,12 +5,22 @@ installed GNU Radio blocks in a web page, backed by a Flask server.
 
 ## Quick start
 
-    ./start.sh                     # http://localhost:5050
+    ./start.sh                     # http://localhost:5050, and from other computers
     ./start.sh 8080                # custom port
     ./start.sh --dir ~/gnuradio    # where flowgraphs are opened/saved (default ~/gr-web)
+    ./start.sh --host 127.0.0.1    # this machine only
+    ./start.sh --host 127.0.0.1 --debug   # auto-reload while developing the backend
 
 `start.sh` builds the frontend if `frontend/dist` doesn't exist yet, then starts
-the backend. After changing frontend code, rebuild with `npm run build` in
+the backend, which prints the addresses to open it from.
+
+**Network access:** by default the server listens on all interfaces, so any
+computer that can reach the port can use it, and can therefore run programs on
+this machine as you (running a flowgraph executes its Run Command). Only do
+this on a network you trust, never expose the port to the internet, and use
+`--host 127.0.0.1` (this machine only) or `--host <one LAN address>` to limit
+it. If a firewall is on, allow the port from your LAN, e.g.
+`sudo ufw allow from 192.168.4.0/22 to any port 5050 proto tcp`. After changing frontend code, rebuild with `npm run build` in
 `frontend/` (or use the dev server, below).
 
 ## Layout
